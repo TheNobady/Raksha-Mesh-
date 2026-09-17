@@ -30,13 +30,6 @@ export function Funnel() {
               <stop offset="1" stopColor={s.color[1]} />
             </linearGradient>
           ))}
-          <filter id="fun-glow">
-            <feGaussianBlur stdDeviation="3" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
         </defs>
         {STAGES.map((s, i) => {
           const v = values[s.key]
@@ -48,7 +41,7 @@ export function Funnel() {
           const d = `M ${(W - top) / 2} ${y + 2} L ${(W + top) / 2} ${y + 2} L ${(W + bot) / 2} ${y + rowH - 2} L ${(W - bot) / 2} ${y + rowH - 2} Z`
           return (
             <g key={s.key}>
-              <motion.path animate={{ d }} initial={false} transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }} fill={`url(#fun-${s.key})`} opacity={broadcast ? 0.9 : 0.15} filter="url(#fun-glow)" stroke={s.color[0]} strokeWidth="1" />
+              <motion.path animate={{ d }} initial={false} transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }} fill={`url(#fun-${s.key})`} opacity={broadcast ? 0.9 : 0.15} stroke={s.color[0]} strokeWidth="1.5" />
               <text x={W / 2} y={y + rowH / 2 + 5} textAnchor="middle" fontSize="15" fill="#fff" fontFamily="Orbitron" fontWeight="700" style={{ textShadow: '0 1px 4px #000' }}>
                 {fmtIN(v)}
               </text>

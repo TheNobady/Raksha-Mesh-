@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Power } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { sound } from '../../audio/soundManager'
+import { startQualityWatchdog } from '../../lib/quality'
 import { useStore } from '../../store/scenarioStore'
 import { Logo } from '../ui/Logo'
 
@@ -34,6 +35,8 @@ export function StartOverlay() {
     setLeaving(true)
     window.setTimeout(() => {
       useStore.setState({ started: true, isPlaying: true })
+      // let the cinematic fly-in finish before judging the frame rate
+      window.setTimeout(startQualityWatchdog, 8000)
       sound.play('whoosh')
     }, 650)
   }

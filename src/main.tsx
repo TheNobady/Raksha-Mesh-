@@ -13,7 +13,8 @@ import { createRoot } from 'react-dom/client'
 import { App } from './app/App'
 import * as engine from './store/engine'
 import { useStore } from './store/scenarioStore'
+import { useQuality } from './lib/quality'
 
 engine.startEngine()
-if (import.meta.env.DEV) Object.assign(window, { __engine: engine, __store: useStore })
+if (import.meta.env.DEV) Object.assign(window, { __engine: engine, __store: useStore, __quality: useQuality })
 createRoot(document.getElementById('root')!).render(<App />)

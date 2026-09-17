@@ -14,8 +14,10 @@ import { cyclonePosition, landfallSeconds } from '../../lib/cyclone'
 import { hms } from '../../lib/format'
 import { alongPath, clamp, type LngLat } from '../../lib/geo'
 import { useMapUi } from '../../lib/mapInstance'
+import { flags } from '../../lib/quality'
 import { mulberry32 } from '../../lib/prng'
 import type { ScenarioState, SOSItem } from '../../store/scenarioStore'
+import { clock } from '../../store/engine'
 import { getIconAtlas } from './icons'
 
 type RGBA = [number, number, number, number]
@@ -69,12 +71,8 @@ const TRIPS: Trip[] = [
   ...FLAT_LINKS.map((l) => tripFor(l, l.kind === 'mesh' ? [94, 234, 212] : [74, 222, 128])),
 ]
 
-const HALO_GROUPS: InfraNode[][] = [[], [], []]
-const HALO_TYPES = new Set(['command', 'fm', 'tv', 'satellite', 'shelter', 'hospital', 'tower'])
-NETWORK_NODES.forEach((n, i) => {
-  if (!HALO_TYPES.has(n.type)) return
-  HALO_GROUPS[i % 3].push(n)
-})
+const HALO_TYPES = new Set(['command', 'fm', 'tv', 'satellite', 'shelter', 'hospital'])
+const HALO_NODES = NETWORK_NODES.filter((n) => HALO_TYPES.has(n.type))
 
 interface RainParticle {
   r: number
@@ -83,10 +81,8 @@ interface RainParticle {
   size: number
   band: 'rain' | 'wind'
 }
-const PARTICLES: RainParticle[] = [
-  ...Array.from({ length: 1100 }, () => ({ r: 25 + Math.pow(rand(), 0.7) * 260, a0: rand() * Math.PI * 2, w: 0.6 + rand() * 0.8, size: 1 + rand() * 1.6, band: 'rain' as const })),
-  ...Array.from({ length: 520 }, () => ({ r: 280 + rand() * 520, a0: rand() * Math.PI * 2, w: 0.3 + rand() * 0.4, size: 1 + rand(), band: 'wind' as const })),
-]
+const RAIN_ALL: RainParticle[] = Array.from({ length: 900 }, () => ({ r: 25 + Math.pow(rand(), 0.7) * 260, a0: rand() * Math.PI * 2, w: 0.6 + rand() * 0.8, size: 1 + rand() * 1.6, band: 'rain' as const }))
+const WIND_ALL: RainParticle[] = Array.from({ length: 420 }, () => ({ r: 280 + rand() * 520, a0: rand() * Math.PI * 2, w: 0.3 + rand() * 0.4, size: 1 + rand(), band: 'wind' as const }))
 
 const SPIRAL_ARMS: { r: number; a0: number }[][] = [0, 1, 2].map((arm) =>
   Array.from({ length: 60 }, (_, i) => ({ r: 40 + i * 5.2, a0: (arm * Math.PI * 2) / 3 + i * 0.075 })),
@@ -124,6 +120,26 @@ function memo<K, T>(fn: (k: K) => T) {
   }
 }
 const COMMANDS = NETWORK_NODES.filter((n) => n.type === 'command')
+const downedTowers = memo((down: Record<string, true>) => NETWORK_NODES.filter((n) => down[n.id]))
+
+interface BoatState { id: string; name: string; f: number; arrived: boolean; path: LngLat[] }
+interface UnitLabel { p: LngLat; text: string }
+let unitLabelCache: { key: string; data: UnitLabel[] } = { key: '', data: [] }
+/**
+ * Text layout is expensive, so the ETA label sits at the destination village
+ * (not on the moving boat) and only changes when the ETA minute changes.
+ */
+function unitLabels(boats: BoatState[]): UnitLabel[] {
+  const live = boats.filter((b) => !b.arrived)
+  const key = live.map((b) => `${b.id}:${Math.ceil((1 - b.f) * 14)}`).join('|')
+  if (unitLabelCache.key !== key) {
+    unitLabelCache = {
+      key,
+      data: live.map((b) => ({ p: b.path[b.path.length - 1], text: `${b.name} · ETA ${Math.max(0, Math.ceil((1 - b.f) * 14))} min` })),
+    }
+  }
+  return unitLabelCache.data
+}
 const zoneVillages = memo((ids: string[] | null) => {
   const set = new Set(ids ?? [])
   return VILLAGES.filter((v) => set.has(v.id))
@@ -150,9 +166,11 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
   const reach = screen === 'reach'
   const rescue = screen === 'rescue'
   const networkDim = composer ? 0.35 : reach || rescue ? 0.28 : 1
-  const eye = cyclonePosition(s.elapsed)
+  const eye = cyclonePosition(clock.t)
   // Reach & Rescue zoom in on villages; the storm graphics would swamp them
   const stormView = !reach && !rescue
+  const q = flags()
+  const eyeCoarse: LngLat = [Math.round(eye[0] * 400) / 400, Math.round(eye[1] * 400) / 400]
   const layers: Layer[] = []
   const pulse = (speed: number, phase = 0) => 0.5 + 0.5 * Math.sin(t * speed + phase)
 
@@ -356,7 +374,8 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         widthUnits: 'pixels',
         updateTriggers: { getColor: [s.towersDown, networkDim] },
       }),
-      new PathLayer({
+      ...(q.glowDuplicates
+        ? [new PathLayer({
         id: 'arcs-glow',
         data: ARC_LINKS,
         getPath: (d: Link) => d.path,
@@ -364,7 +383,8 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         getWidth: 5,
         widthUnits: 'pixels',
         updateTriggers: { getColor: networkDim },
-      }),
+      })]
+        : []),
       new PathLayer({
         id: 'arcs',
         data: ARC_LINKS,
@@ -375,7 +395,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         updateTriggers: { getColor: networkDim },
       }),
     )
-    if (L.packets && !composer) {
+    if (L.packets && q.packets && !composer) {
       layers.push(
         new TripsLayer({
           id: 'packets',
@@ -393,25 +413,41 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         }),
       )
     }
-    HALO_GROUPS.forEach((group, gi) => {
-      const p = pulse(2.4, (gi * Math.PI * 2) / 3)
+    if (q.haloNodes) {
+      const p = pulse(2.4)
       layers.push(
         new ScatterplotLayer({
-          id: `halo-${gi}`,
-          data: group,
+          id: 'halo',
+          data: HALO_NODES,
           getPosition: (d: InfraNode) => d.lngLat,
-          getRadius: (d: InfraNode) => (s.towersDown[d.id] ? 9 : d.type === 'tower' ? 0 : NODE_META[d.type].radius * 2.2),
+          getRadius: (d: InfraNode) => NODE_META[d.type].radius * 2.2,
           radiusUnits: 'pixels',
           radiusScale: 0.8 + p * 0.9,
           getFillColor: (d: InfraNode) => {
-            const c = s.towersDown[d.id] ? [239, 68, 68] : NODE_META[d.type].color
-            return [c[0], c[1], c[2], 60]
+            const c = NODE_META[d.type].color
+            return [c[0], c[1], c[2], 55]
           },
           opacity: (1 - p * 0.7) * networkDim,
-          updateTriggers: { getFillColor: s.towersDown, getRadius: s.towersDown },
         }),
       )
-    })
+    }
+    // downed towers always keep their red warning halo
+    const downList = downedTowers(s.towersDown)
+    if (downList.length) {
+      const p = pulse(3.2)
+      layers.push(
+        new ScatterplotLayer({
+          id: 'halo-down',
+          data: downList,
+          getPosition: (d: InfraNode) => d.lngLat,
+          getRadius: 9,
+          radiusUnits: 'pixels',
+          radiusScale: 0.7 + p * 0.8,
+          getFillColor: [239, 68, 68, 70],
+          opacity: (1 - p * 0.6) * networkDim,
+        }),
+      )
+    }
     layers.push(
       new ScatterplotLayer({
         id: 'nodes',
@@ -475,7 +511,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
           const st = s.villageAck[d.id]
           if (broadcast && (reach || rescue || screen === 'command')) {
             if (st) return ACK_COLOR[st]
-            return s.zoneVillageIds.includes(d.id) ? ACK_COLOR.pending : [71, 85, 105, 90]
+            return s.zoneVillageIds.includes(d.id) ? [148, 163, 184, 140] : [71, 85, 105, 80]
           }
           if (composer || screen === 'command') {
             if (inZone) return inZone.has(d.id) ? [251, 191, 36, 245] : [71, 85, 105, 110]
@@ -488,7 +524,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
           if (st === 'ack') return [187, 247, 208, 255]
           if (st === 'unreached') return [254, 202, 202, 255]
           if (inZone?.has(d.id)) return [254, 243, 199, 255]
-          return [15, 23, 42, 200]
+          return [15, 23, 42, 120]
         },
         stroked: true,
         lineWidthMinPixels: 0.8,
@@ -595,7 +631,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
       return { id: r.id, kind: r.kind, name: r.name, p, bearing }
     })
     const boats = s.units.map((u) => {
-      const f = clamp((s.elapsed - u.startAt) / u.duration)
+      const f = clamp((clock.t - u.startAt) / u.duration)
       const { p, bearing } = alongPath(u.path, f)
       return { id: u.id, kind: 'boat', name: u.name, p, bearing, f, arrived: u.arrived }
     })
@@ -649,9 +685,9 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
       }),
       new TextLayer({
         id: 'unit-labels',
-        data: [...boats.filter((b) => !b.arrived), ...(rescue ? patrols.filter((p) => p.kind !== 'drone') : [])],
-        getPosition: (d: { p: LngLat }) => d.p,
-        getText: (d: { name: string; f?: number }) => (d.f !== undefined ? `${d.name} · ETA ${Math.max(0, Math.ceil((1 - d.f) * 14))} min` : d.name),
+        data: unitLabels(s.units.map((u) => ({ id: u.id, name: u.name, arrived: u.arrived, path: u.path, f: clamp((clock.t - u.startAt) / u.duration) }))),
+        getPosition: (d: UnitLabel) => d.p,
+        getText: (d: UnitLabel) => d.text,
         getSize: 11,
         getColor: [224, 242, 254, 240],
         getPixelOffset: [0, -24],
@@ -661,7 +697,6 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         outlineColor: [3, 7, 18, 255],
         fontSettings: FONT_SETTINGS,
         characterSet: 'auto',
-        updateTriggers: { getPosition: t, getText: Math.floor(t * 2) },
       }),
     )
   }
@@ -678,7 +713,8 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
           getPosition: () => eye,
           getRadius: (d: { r: number }) => d.r,
           radiusScale: 0.96 + p * 0.06,
-          getFillColor: (d: { c: number[] }) => [d.c[0], d.c[1], d.c[2], 26],
+          getFillColor: (d: { c: number[]; r: number }) => [d.c[0], d.c[1], d.c[2], d.r < 70000 ? 22 : 0],
+          filled: true,
           getLineColor: (d: { c: number[] }) => [d.c[0], d.c[1], d.c[2], 190],
           stroked: true,
           lineWidthMinPixels: 1.5,
@@ -686,8 +722,8 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         }),
       )
     }
-    if (L.rain) {
-      const pts = PARTICLES.map((pp) => {
+    if (L.rain && q.rainParticles) {
+      const pts = [...RAIN_ALL.slice(0, q.rainParticles), ...WIND_ALL.slice(0, q.windParticles)].map((pp) => {
         const ang = pp.a0 + t * pp.w * (pp.band === 'rain' ? 140 / pp.r : 60 / pp.r) * 2
         const inward = pp.band === 'rain' ? ((t * 12 * pp.w + pp.a0 * 40) % 60) : 0
         const r = pp.r - inward
@@ -706,9 +742,10 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         }),
       )
     }
-    // spiral cloud bands drawn as rotating point streams
+    // spiral cloud bands drawn as rotating point streams (high quality only)
     layers.push(
-      new ScatterplotLayer({
+      ...(q.spiralBands
+        ? [new ScatterplotLayer({
         id: 'spiral-bands',
         data: SPIRAL_DATA,
         getPosition: (d: { r: number; a0: number }) => {
@@ -718,7 +755,8 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         getRadius: (d: { r: number }) => 9000 + d.r * 40,
         getFillColor: (d: { r: number }) => [226, 242, 254, Math.max(10, 70 - d.r * 0.18)],
         updateTriggers: { getPosition: [t, eye] },
-      }),
+      })]
+        : []),
       new IconLayer({
         id: 'cyclone',
         data: ONE,
@@ -737,7 +775,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
       new TextLayer({
         id: 'cyclone-name',
         data: ONE,
-        getPosition: () => eye,
+        getPosition: () => eyeCoarse,
         getText: () => 'VAYU-26 · ESCS · 185 km/h',
         getSize: 14,
         getColor: [255, 255, 255, 255],
@@ -748,7 +786,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         outlineColor: [127, 29, 29, 255],
         fontSettings: FONT_SETTINGS,
         characterSet: 'auto',
-        updateTriggers: { getPosition: eye },
+        updateTriggers: { getPosition: eyeCoarse.join() },
       }),
     )
     // landfall marker
@@ -781,7 +819,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         id: 'landfall-text',
         data: ONE,
         getPosition: () => LANDFALL,
-        getText: () => `LANDFALL IN ${hms(landfallSeconds(s.elapsed))}`,
+        getText: () => `LANDFALL IN ${hms(landfallSeconds(clock.t))}`,
         getSize: 13,
         getColor: [255, 228, 230, 255],
         getPixelOffset: [16, 26],
@@ -792,13 +830,13 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         outlineColor: [76, 5, 25, 255],
         fontSettings: FONT_SETTINGS,
         characterSet: 'auto',
-        updateTriggers: { getText: Math.floor(s.elapsed) },
+        updateTriggers: { getText: Math.floor(clock.t) },
       }),
     )
   }
 
   // ---------- lightning
-  if (L.lightning) {
+  if (L.lightning && q.lightning) {
     const slot = Math.floor(t / 0.37)
     const phase = (t / 0.37) % 1
     if (phase < 0.35) {

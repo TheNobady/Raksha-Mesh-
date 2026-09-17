@@ -31,7 +31,7 @@ export function EventFeed() {
     () =>
       source
         .filter((e) => (filter === 'all' ? true : filter === 'crit' ? e.sev === 'crit' : e.cat === filter))
-        .slice(0, 60),
+        .slice(0, 40),
     [source, filter],
   )
 

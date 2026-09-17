@@ -1,10 +1,9 @@
-import { motion } from 'framer-motion'
 import { Crosshair, Flame, MapPinPlus, Video } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { istClock } from '../../lib/format'
 import { useStore } from '../../store/scenarioStore'
 
-const NORMAL = { water: '#1d3b4f', water2: '#2a5068', roof: '#8a6d52', roof2: '#6b523d', tin: '#8c9aa6', tree: '#2f5d3a', road: '#51606b', person: '#e8c9a0', mud: '#4b3f33' }
+const NORMAL = { water: '#123243', water2: '#1d506b', roof: '#6d5340', roof2: '#4d3b2d', tin: '#6e7c88', tree: '#255030', road: '#3d4a55', person: '#e8c9a0', mud: '#2c2a26' }
 const THERMAL = { water: '#1a0636', water2: '#2b0a52', roof: '#4b1d78', roof2: '#3a1466', tin: '#5a2a8a', tree: '#3d0f5e', road: '#521f7a', person: '#ffe066', mud: '#34105a' }
 
 const HOUSES = [
@@ -36,11 +35,8 @@ export function DroneView() {
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-lg bg-black">
-      <motion.svg viewBox="0 0 520 320" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" animate={{ x: [0, -14, 0], y: [0, 8, 0], scale: [1.06, 1.1, 1.06] }} transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}>
+      <svg viewBox="0 0 520 320" preserveAspectRatio="xMidYMid slice" className="drone-pan absolute inset-0 h-full w-full">
         <defs>
-          <filter id="heat" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="3" />
-          </filter>
           <radialGradient id="heatblob">
             <stop offset="0" stopColor="#fff7c2" />
             <stop offset="0.35" stopColor="#ffd23f" />
@@ -54,7 +50,7 @@ export function DroneView() {
         </defs>
         <rect width="520" height="320" fill={c.water} />
         {/* currents */}
-        {Array.from({ length: 18 }).map((_, i) => (
+        {Array.from({ length: 7 }).map((_, i) => (
           <path key={i} d={`M ${-40 + ((i * 61) % 560)} ${(i * 37) % 320} q 20 -6 40 0 t 40 0`} stroke={c.water2} strokeWidth="2" fill="none" opacity="0.8">
             <animateTransform attributeName="transform" type="translate" values="0 0; 30 4; 0 0" dur={`${6 + (i % 4)}s`} repeatCount="indefinite" />
           </path>
@@ -76,19 +72,19 @@ export function DroneView() {
             <rect x={h.x} y={h.y} width={h.w} height={h.h} fill={h.tin ? 'url(#tin)' : c.roof} stroke={c.roof2} strokeWidth="2" />
             <line x1={h.x} y1={h.y + h.h / 2} x2={h.x + h.w} y2={h.y + h.h / 2} stroke={c.roof2} strokeWidth="2" />
             {/* ripples around walls */}
-            <rect x={h.x - 5} y={h.y - 5} width={h.w + 10} height={h.h + 10} fill="none" stroke={thermal ? '#6d28d9' : '#9cc7d8'} strokeOpacity="0.5" rx="4">
-              <animate attributeName="stroke-opacity" values="0.6;0;0.6" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
-            </rect>
+            {i < 3 && (
+              <rect x={h.x - 5} y={h.y - 5} width={h.w + 10} height={h.h + 10} fill="none" stroke={thermal ? '#6d28d9' : '#9cc7d8'} strokeOpacity="0.5" rx="4">
+                <animate attributeName="stroke-opacity" values="0.6;0;0.6" dur={`${2.5 + i * 0.3}s`} repeatCount="indefinite" />
+              </rect>
+            )}
           </g>
         ))}
         {/* people on the rooftop */}
         {PEOPLE.map((p, i) =>
           thermal ? (
             <g key={i}>
-              <ellipse cx={p.x} cy={p.y} rx="11" ry="15" fill="url(#heatblob)" filter="url(#heat)">
-                <animate attributeName="rx" values="10;12;10" dur="1.4s" repeatCount="indefinite" />
-              </ellipse>
-              <circle cx={p.x} cy={p.y - 9} r="5" fill="#fff3b0" filter="url(#heat)" />
+              <ellipse cx={p.x} cy={p.y} rx="13" ry="18" fill="url(#heatblob)" />
+              <circle cx={p.x} cy={p.y - 9} r="5" fill="#fff3b0" opacity="0.9" />
             </g>
           ) : (
             <g key={i}>
@@ -97,7 +93,7 @@ export function DroneView() {
             </g>
           ),
         )}
-      </motion.svg>
+      </svg>
 
       {/* thermal colour grade */}
       {thermal && <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-fuchsia-900/10 via-transparent to-orange-500/10 mix-blend-screen" />}
@@ -106,16 +102,13 @@ export function DroneView() {
       {(detected || thermal) && (
         <div className="pointer-events-none absolute inset-0">
           {PEOPLE.map((p, i) => (
-            <motion.div
+            <div
               key={i}
-              initial={{ scale: 1.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.15 * i }}
-              className="absolute border-2 border-yellow-300"
+              className="absolute border-2 border-yellow-300 target-pop"
               style={{ left: `${((p.x - 18) / 520) * 100}%`, top: `${((p.y - 24) / 320) * 100}%`, width: `${(36 / 520) * 100}%`, height: `${(46 / 320) * 100}%`, boxShadow: '0 0 10px rgba(253,224,71,0.7)' }}
             >
               <span className="absolute -top-4 left-0 whitespace-nowrap bg-yellow-300 px-1 font-mono text-[9px] font-bold text-black">PERSON {p.conf}%</span>
-            </motion.div>
+            </div>
           ))}
         </div>
       )}

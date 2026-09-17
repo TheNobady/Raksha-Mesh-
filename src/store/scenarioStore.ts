@@ -219,7 +219,7 @@ const initialData = (): ScenarioData => ({
   toasts: [],
   layers: {
     network: true, packets: true, cyclone: true, cone: false, windRings: true, rain: true, flood: true, landslide: true,
-    rainfall: false, heatwave: false, lightning: true, surge: true, villages: true, terrain: true,
+    rainfall: false, heatwave: false, lightning: true, surge: true, villages: true, terrain: false,
   },
   muted: false,
   flashNonce: 0,

@@ -6,6 +6,7 @@ import { FLOOD_STAGES } from '../../data/hazards'
 import { INDIA_RING, STATE_LINES } from '../../data/indiaOutline'
 import { SEVERITIES } from '../../data/content'
 import { mapRefs, useMapUi } from '../../lib/mapInstance'
+import { applyQuality, flags, useQuality } from '../../lib/quality'
 import { getState, useStore } from '../../store/scenarioStore'
 import { buildLayers } from './deckLayers'
 
@@ -40,8 +41,12 @@ async function loadStyle(): Promise<{ style: StyleSpecification; fallback: boole
     const style = (await res.json()) as StyleSpecification
     // Restyle toward deep navy and drop all third-party boundary / country layers:
     // only our own India outline is drawn.
+    // Prune anything a dark command-centre map doesn't need. Fewer basemap layers
+    // is the cheapest way to keep close zooms smooth.
     style.layers = style.layers
       .filter((l) => !/boundary|country|disputed|admin/i.test(l.id))
+      .filter((l) => !/poi|building|housenumber|aeroway|transit|ferry|pier|path|service|track|bridge|tunnel|golf|cemetery|hospital|school/i.test(l.id))
+      .filter((l) => !(l.type === 'symbol' && !/place_(city|capital|town|state)|water_name|waterway_name/i.test(l.id)))
       .map((l) => {
         const paint = { ...(('paint' in l && l.paint) || {}) } as Record<string, unknown>
         if (l.type === 'background') paint['background-color'] = '#040b18'
@@ -128,7 +133,7 @@ function addOwnLayers(map: MLMap) {
     })
   })
 
-  map.addLayer({ id: 'zone-fill', type: 'fill', source: 'zone', paint: { 'fill-color': '#f43f5e', 'fill-opacity': 0.16 } })
+  map.addLayer({ id: 'zone-fill', type: 'fill', source: 'zone', paint: { 'fill-color': '#f43f5e', 'fill-opacity': 0.08 } })
   map.addLayer({ id: 'zone-glow', type: 'line', source: 'zone', paint: { 'line-color': '#f43f5e', 'line-width': 10, 'line-blur': 8, 'line-opacity': 0.55 } })
   map.addLayer({ id: 'zone-line', type: 'line', source: 'zone', paint: { 'line-color': '#fecdd3', 'line-width': 2.2, 'line-dasharray': [2, 2] } })
 }
@@ -156,6 +161,7 @@ function addTerrain(map: MLMap) {
   }
 }
 
+/** Terrain is the priciest map feature, so it follows the 3D toggle directly. */
 export function setTerrainEnabled(on: boolean) {
   const map = mapRefs.map
   if (!map || !map.getSource('terrain-dem')) return
@@ -184,11 +190,11 @@ export function MapView() {
         bearing: VIEW_INDIA.bearing,
         maxPitch: 78,
         attributionControl: { compact: true },
-        fadeDuration: 150,
+        fadeDuration: 0,
         canvasContextAttributes: { antialias: true },
       })
       mapRefs.map = map
-      if (import.meta.env.DEV) (window as unknown as { __map: MLMap }).__map = map
+      if (import.meta.env.DEV) Object.assign(window, { __map: map, __mapRefs: mapRefs })
       useMapUi.setState({ styleFallback: fallback })
 
       map.on('error', (e) => {
@@ -207,6 +213,7 @@ export function MapView() {
         const overlay = new MapboxOverlay({ interleaved: false, layers: [] })
         map.addControl(overlay)
         mapRefs.overlay = overlay
+        applyQuality(useQuality.getState().level)
         useMapUi.setState({ ready: true })
 
         // slow rotation behind the start overlay
@@ -217,9 +224,12 @@ export function MapView() {
         map.on('moveend', idleSpin)
         idleSpin()
 
+        let lastFrame = 0
         const loop = (now: number) => {
           raf = requestAnimationFrame(loop)
           if (!mapRefs.visible || !mapRefs.overlay) return
+          if (now - lastFrame < flags().frameInterval) return
+          lastFrame = now
           try {
             mapRefs.overlay.setProps({ layers: buildLayers(getState(), now) })
           } catch (err) {
@@ -231,11 +241,13 @@ export function MapView() {
         // marching-ants dash on the drawn zone
         const dashes: [number, number, number, number][] = [[0, 2, 2, 0], [0.5, 2, 1.5, 0], [1, 2, 1, 0], [1.5, 2, 0.5, 0], [2, 2, 0, 0], [0, 0.5, 2, 1.5], [0, 1, 2, 1], [0, 1.5, 2, 0.5]]
         let di = 0
+        // Animating the dash repaints the whole map, so it only runs on the
+        // composer, where the operator is actually drawing the zone.
         dashTimer = window.setInterval(() => {
-          if (!mapRefs.visible || !map.getLayer('zone-line')) return
+          if (!mapRefs.visible || !getState().zone || getState().screen !== 'composer' || !map.getLayer('zone-line')) return
           di = (di + 1) % dashes.length
           map.setPaintProperty('zone-line', 'line-dasharray', dashes[di])
-        }, 90)
+        }, 110)
 
         syncWorld()
         if (getState().started) runIntro()
@@ -261,7 +273,20 @@ export function MapView() {
         map.flyTo({ center: s.focus.center, zoom: s.focus.zoom, pitch: s.focus.pitch ?? map.getPitch(), bearing: s.focus.bearing ?? map.getBearing(), duration: 2200, essential: true })
       }
     })
-    return unsub
+    const unsubQuality = useQuality.subscribe((q, prev) => {
+      if (q.level === prev.level) return
+      applyQuality(q.level)
+      // a quality change proposes a terrain default; the 3D button can still override it
+      const wantTerrain = flags().terrain
+      if (getState().layers.terrain !== wantTerrain) {
+        useStore.setState((st) => ({ layers: { ...st.layers, terrain: wantTerrain } }))
+        setTerrainEnabled(wantTerrain)
+      }
+    })
+    return () => {
+      unsub()
+      unsubQuality()
+    }
   }, [])
 
   // inline style: maplibre's unlayered CSS (position: relative) would beat Tailwind's layered utilities
@@ -275,7 +300,7 @@ function syncWorld() {
   FLOOD_STAGES.forEach((_, i) => {
     const on = s.layers.flood && i < s.floodStage + 1 && s.floodStage > 0
     if (!map.getLayer(`flood-${i}`)) return
-    map.setPaintProperty(`flood-${i}`, 'fill-opacity', on ? 0.22 + i * 0.03 : 0)
+    map.setPaintProperty(`flood-${i}`, 'fill-opacity', on ? 0.16 + i * 0.02 : 0)
     map.setPaintProperty(`flood-edge-${i}`, 'line-opacity', on ? 0.6 : 0)
   })
   if (map.getLayer('rivers')) {

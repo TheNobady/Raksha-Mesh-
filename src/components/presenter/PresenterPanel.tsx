@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, GripHorizontal, Pause, Play, RotateCcw, Smartphone, Volume2, VolumeX, X, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { currentStepIndex, jumpTo, next, prev, resetAll, setSpeed, skipToBroadcast, togglePlay } from '../../store/engine'
+import { useQuality } from '../../lib/quality'
 import { useStore } from '../../store/scenarioStore'
 import { ORDERED_STEPS } from '../../store/timeline'
 
@@ -50,6 +51,8 @@ export function PresenterPanel() {
   const lastStep = useStore((s) => s.lastStepId)
   const broadcastAt = useStore((s) => s.broadcastAt)
   const set = useStore((s) => s.set)
+  const quality = useQuality((s) => s.level)
+  const fps = useQuality((s) => s.fps)
   const [, force] = useState(0)
 
   useEffect(() => {
@@ -119,6 +122,19 @@ export function PresenterPanel() {
             ))}
           </select>
 
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="font-hud text-[10px] uppercase tracking-widest text-slate-500">Graphics</span>
+            {(['high', 'balanced', 'performance'] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => useQuality.getState().setLevel(l)}
+                className={`rounded px-2 py-0.5 font-mono text-[11px] cursor-pointer ${quality === l ? 'bg-fuchsia-500/30 text-fuchsia-100' : 'text-slate-400 hover:text-white'}`}
+              >
+                {l === 'performance' ? 'perf' : l === 'balanced' ? 'bal' : 'high'}
+              </button>
+            ))}
+            <span className="ml-auto font-mono text-[10px] text-slate-500">{fps} fps</span>
+          </div>
           <div className="mb-2 flex items-center gap-1.5">
             <span className="font-hud text-[10px] uppercase tracking-widest text-slate-500">Speed</span>
             {[0.5, 1, 2].map((v) => (

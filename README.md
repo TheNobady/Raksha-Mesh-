@@ -46,6 +46,20 @@ Sounds are synthesised with the Web Audio API. To use recorded clips instead, dr
 
 Voice previews fall back to the browser's SpeechSynthesis. Odia voices are rarely installed, so Hindi is used when needed.
 
+## Graphics & smoothness
+
+The map is fill-rate bound, so there are three graphics levels (map layer panel, or the presenter panel):
+
+| Level | What it does |
+| --- | --- |
+| **High** | 3D terrain, spiral cloud bands, full particle count, glow duplicates, native pixel ratio (up to 2×) |
+| **Balanced** (default) | No terrain, fewer particles, pixel ratio capped at 1.25×, deck.gl capped near 45 fps |
+| **Performance** | Minimal particles, no lightning, pixel ratio 1× |
+
+A watchdog samples the real frame rate a few seconds after the intro, steps down when frames get expensive and up when there is headroom, so a strong laptop gets terrain automatically and a weak one stays smooth. It never climbs back to a level that already proved too slow. Force a level with `?q=high`, `?q=balanced` or `?q=perf`, or set it by hand (that turns the watchdog off).
+
+The heaviest single feature is 3D terrain; the 2D/3D map button toggles it at any quality level.
+
 ## Offline / venue notes
 
 - Fonts and all mock data are bundled locally.

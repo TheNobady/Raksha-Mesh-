@@ -7,6 +7,17 @@ let running = false
 let last = 0
 let ambientAcc = 0
 let ambientIdx = 0
+let storeSync = 0
+
+/**
+ * The scenario clock lives outside React: map animations read it every frame,
+ * while the store (and therefore every subscribed component) is updated ~5×/s.
+ */
+export const clock = { t: 0 }
+export function setClock(t: number) {
+  clock.t = t
+  useStore.setState({ elapsed: t })
+}
 
 function fire(step: Step) {
   const s = getState()
@@ -31,7 +42,7 @@ function tick(now: number) {
   }
 
   if (s.started && s.isPlaying) {
-    let elapsed = s.elapsed + dt * s.speed
+    let elapsed = clock.t + dt * s.speed
     const gate = ORDERED_STEPS.find((x) => x.gate)!
     if (s.broadcastAt === null && elapsed >= gate.at) {
       elapsed = gate.at
@@ -39,7 +50,11 @@ function tick(now: number) {
         useStore.setState({ lastStepId: gate.id })
       }
     }
-    useStore.setState({ elapsed })
+    clock.t = elapsed
+    if (now - storeSync > 200) {
+      storeSync = now
+      useStore.setState({ elapsed })
+    }
     const st = getState()
     // an early broadcast (official acted before the script) silently catches up the pre-broadcast story
     const catchUp = st.broadcastAt !== null && ORDERED_STEPS.some((x) => !x.afterBroadcast && !x.gate && !st.fired[x.id])
@@ -57,7 +72,7 @@ function tick(now: number) {
   // unit arrivals are driven by the scenario clock so they replay deterministically
   const st = getState()
   for (const u of st.units) {
-    if (!u.arrived && st.elapsed >= u.startAt + u.duration) st.arriveUnit(u.id)
+    if (!u.arrived && clock.t >= u.startAt + u.duration) st.arriveUnit(u.id)
   }
 
   requestAnimationFrame(tick)
@@ -104,7 +119,7 @@ export function next() {
   if (step.gate) return skipToBroadcast()
   const at = absoluteAt(step, s.broadcastAt)
   // fire every earlier pending step too, in order
-  useStore.setState({ elapsed: Math.max(s.elapsed, at) })
+  setClock(Math.max(clock.t, at))
   for (const x of ORDERED_STEPS) {
     if (x === step) break
     if (!x.gate && !getState().fired[x.id]) fire(x)
@@ -128,7 +143,8 @@ export function skipToBroadcast() {
     fire(x)
   }
   setSilent(false)
-  useStore.setState({ elapsed: gate.at, isPlaying: true })
+  setClock(gate.at)
+  useStore.setState({ isPlaying: true })
   if (!getState().zone) getState().suggestZone()
   getState().broadcast()
 }
@@ -140,6 +156,7 @@ export function jumpTo(index: number) {
   sound.stopAll()
   const intro = getState().introNonce
   getState().reset()
+  setClock(0)
   useStore.setState({ introNonce: intro, isPlaying: playing, speed })
   setSilent(true)
   let screen: Screen = 'command'
@@ -147,12 +164,12 @@ export function jumpTo(index: number) {
     const step = ORDERED_STEPS[i]
     if (step.screen) screen = step.screen
     if (step.gate) {
-      useStore.setState({ elapsed: step.at })
+      setClock(step.at)
       getState().suggestZone()
       getState().broadcast()
       continue
     }
-    useStore.setState({ elapsed: absoluteAt(step, getState().broadcastAt) })
+    setClock(absoluteAt(step, getState().broadcastAt))
     fire(step)
   }
   setSilent(false)
@@ -162,5 +179,6 @@ export function jumpTo(index: number) {
 export function resetAll() {
   sound.stopAll()
   getState().reset()
+  setClock(0)
   useStore.setState({ isPlaying: true })
 }
