@@ -22,13 +22,18 @@ const rows = [...DISTRICTS].sort((a, b) => ORDER[a.risk] - ORDER[b.risk] || atRi
 
 export function DistrictTable() {
   const flyTo = useStore((s) => s.flyTo)
+  const calm = useStore((s) => s.phase === 'calm')
   return (
-    <GlassPanel title="District Risk" icon={Map} right={<span className="font-mono text-[10px] text-slate-500">10 coastal</span>}>
+    <GlassPanel
+      title={calm ? 'District Status' : 'District Risk'}
+      icon={Map}
+      right={<span className="font-mono text-[10px] text-slate-500">{calm ? 'all normal' : '10 coastal'}</span>}
+    >
       <div className="px-2 py-1.5">
         <div className="grid grid-cols-[1fr_78px_62px] gap-2 px-1.5 pb-1 font-hud text-[9.5px] uppercase tracking-widest text-slate-500">
           <span>District</span>
-          <span>Risk</span>
-          <span className="text-right">At risk</span>
+          <span>{calm ? 'Status' : 'Risk'}</span>
+          <span className="text-right">{calm ? 'Population' : 'At risk'}</span>
         </div>
         {rows.map((d, i) => (
           <motion.button
@@ -46,12 +51,14 @@ export function DistrictTable() {
                   initial={{ width: 0 }}
                   animate={{ width: `${(atRisk[d.id] / max) * 100}%` }}
                   transition={{ duration: 1.2, delay: 0.2 + i * 0.05 }}
-                  className={`h-full rounded ${d.risk === 'Extreme' ? 'bg-rose-500' : d.risk === 'Very High' ? 'bg-orange-500' : d.risk === 'High' ? 'bg-amber-400' : 'bg-cyan-400'}`}
+                  className={`h-full rounded ${calm ? 'bg-slate-600' : d.risk === 'Extreme' ? 'bg-rose-500' : d.risk === 'Very High' ? 'bg-orange-500' : d.risk === 'High' ? 'bg-amber-400' : 'bg-cyan-400'}`}
                 />
               </div>
             </div>
-            <span className={`rounded border px-1 py-0.5 text-center font-hud text-[9.5px] font-bold uppercase tracking-wider ${RISK[d.risk]}`}>{d.risk}</span>
-            <span className="text-right font-mono text-[11.5px] text-slate-200">{fmtCompact(Math.round(atRisk[d.id]))}</span>
+            <span className={`rounded border px-1 py-0.5 text-center font-hud text-[9.5px] font-bold uppercase tracking-wider ${calm ? 'border-green-400/40 bg-green-500/10 text-green-300' : RISK[d.risk]}`}>
+              {calm ? 'Normal' : d.risk}
+            </span>
+            <span className="text-right font-mono text-[11.5px] text-slate-200">{fmtCompact(Math.round(calm ? d.population : atRisk[d.id]))}</span>
           </motion.button>
         ))}
       </div>

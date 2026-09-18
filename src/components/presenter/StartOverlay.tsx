@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Power } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { sound } from '../../audio/soundManager'
+import { CALM_AMBIENT } from '../../data/content'
 import { startQualityWatchdog } from '../../lib/quality'
 import { useStore } from '../../store/scenarioStore'
 import { Logo } from '../ui/Logo'
@@ -35,6 +36,9 @@ export function StartOverlay() {
     setLeaving(true)
     window.setTimeout(() => {
       useStore.setState({ started: true, isPlaying: true })
+      // a control room that has been running all morning, not a blank feed
+      const s = useStore.getState()
+      CALM_AMBIENT.slice(0, 4).forEach((e) => s.pushFeed(e.sev, 'system', e.text))
       // let the cinematic fly-in finish before judging the frame rate
       window.setTimeout(startQualityWatchdog, 8000)
       sound.play('whoosh')
@@ -87,7 +91,10 @@ export function StartOverlay() {
                 <Power size={20} /> Initialise Command Centre
               </span>
             </button>
-            <p className="mt-4 font-mono text-[11px] text-slate-500">Presenter controls: Ctrl + Shift + P · Space play/pause · → next step · R reset · P phones</p>
+            <p className="mt-4 font-hud text-[12px] uppercase tracking-[0.2em] text-amber-200/90">
+              Opens in standby · press <span className="rounded border border-amber-300/50 bg-amber-400/15 px-1.5 font-mono">E</span> to declare the cyclone event
+            </p>
+            <p className="mt-2 font-mono text-[11px] text-slate-500">Presenter: Ctrl + Shift + P · Space play/pause · → next · R reset · P phones</p>
           </motion.div>
         </motion.div>
       )}

@@ -13,7 +13,7 @@ import { VILLAGES, type Village } from '../../data/villages'
 import { cyclonePosition, landfallSeconds } from '../../lib/cyclone'
 import { hms } from '../../lib/format'
 import { alongPath, clamp, type LngLat } from '../../lib/geo'
-import { useMapUi } from '../../lib/mapInstance'
+import { mapRefs, useMapUi } from '../../lib/mapInstance'
 import { flags } from '../../lib/quality'
 import { mulberry32 } from '../../lib/prng'
 import type { ScenarioState, SOSItem } from '../../store/scenarioStore'
@@ -119,7 +119,43 @@ function memo<K, T>(fn: (k: K) => T) {
     return lastV as T
   }
 }
+/**
+ * Level of detail by zoom: the national backbone is always on, and local
+ * infrastructure fades in as the operator closes in on an area. Far out this is
+ * a country-wide network; zoomed in it becomes the sirens and mesh nodes of one
+ * block of villages.
+ */
+const NODE_TIER: Record<string, number> = {
+  command: 0,
+  satellite: 0,
+  fm: 1,
+  tv: 1,
+  tower: 2,
+  shelter: 3,
+  hospital: 3,
+  siren: 3,
+  speaker: 4,
+  lora: 4,
+  volunteer: 5,
+  school: 5,
+}
+/** zoom at which each tier starts fading in */
+const TIER_ZOOM = [0, 5.2, 6.6, 7.4, 8.2, 9.0]
+const TIER_FADE = 0.9
+/**
+ * During an incident the operator wants everything visible at once, so every
+ * tier arrives about a zoom level earlier. On a calm day the same view stays
+ * sparse — the dense coastal network is part of what "an event" looks like.
+ */
+const INCIDENT_SHIFT = 0.9
+const TIERS: InfraNode[][] = [[], [], [], [], [], []]
+NETWORK_NODES.forEach((n) => TIERS[NODE_TIER[n.type] ?? 4].push(n))
+/** 0 → hidden, 1 → fully visible */
+const tierAlpha = (tier: number, zoom: number, incident = false) =>
+  clamp((zoom - (TIER_ZOOM[tier] - (incident ? INCIDENT_SHIFT : 0))) / TIER_FADE, 0, 1)
+
 const COMMANDS = NETWORK_NODES.filter((n) => n.type === 'command')
+const haloForZoom = memo((zoom: number) => HALO_NODES.filter((n) => tierAlpha(NODE_TIER[n.type] ?? 4, zoom, true) > 0.5))
 const downedTowers = memo((down: Record<string, true>) => NETWORK_NODES.filter((n) => down[n.id]))
 
 interface BoatState { id: string; name: string; f: number; arrived: boolean; path: LngLat[] }
@@ -167,15 +203,20 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
   const rescue = screen === 'rescue'
   const networkDim = composer ? 0.35 : reach || rescue ? 0.28 : 1
   const eye = cyclonePosition(clock.t)
+  // Calm mode: a quiet monitoring map. No storm, no damage, no incidents.
+  const calm = s.phase === 'calm'
+  const zoom = mapRefs.map?.getZoom() ?? 6
+  // local links and village dots belong to the close-up view
+  const localAlpha = tierAlpha(2, zoom, !calm)
   // Reach & Rescue zoom in on villages; the storm graphics would swamp them
-  const stormView = !reach && !rescue
+  const stormView = !reach && !rescue && !calm
   const q = flags()
   const eyeCoarse: LngLat = [Math.round(eye[0] * 400) / 400, Math.round(eye[1] * 400) / 400]
   const layers: Layer[] = []
   const pulse = (speed: number, phase = 0) => 0.5 + 0.5 * Math.sin(t * speed + phase)
 
   // ---------- heatwave / rainfall (lowest)
-  if (L.heatwave) {
+  if (L.heatwave && !calm) {
     layers.push(
       new SolidPolygonLayer({
         id: 'heatwave',
@@ -186,7 +227,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
       }),
     )
   }
-  if (L.rainfall) {
+  if (L.rainfall && !calm) {
     layers.push(
       new HeatmapLayer({
         id: 'rainfall',
@@ -270,7 +311,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
   }
 
   // ---------- flood/landslide/surge
-  if (L.landslide && s.landslideActive) {
+  if (L.landslide && s.landslideActive && !calm) {
     const p = pulse(2.2)
     layers.push(
       new SolidPolygonLayer({
@@ -335,7 +376,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
       }),
     )
   }
-  if (L.surge) {
+  if (L.surge && !calm) {
     layers.push(
       new PathLayer({
         id: 'surge-glow',
@@ -363,16 +404,18 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
       new LineLayer({
         id: 'links-flat',
         data: FLAT_LINKS,
+        opacity: localAlpha,
+        visible: localAlpha > 0.01,
         getSourcePosition: (d: Link) => d.path[0],
         getTargetPosition: (d: Link) => d.path[d.path.length - 1],
         getColor: (d: Link) => {
-          const down = s.towersDown[d.from] || s.towersDown[d.to]
+          const down = !calm && (s.towersDown[d.from] || s.towersDown[d.to])
           if (down) return [239, 68, 68, 60 * networkDim]
           return d.kind === 'mesh' ? [45, 212, 191, 70 * networkDim] : [74, 222, 128, 55 * networkDim]
         },
         getWidth: 1,
         widthUnits: 'pixels',
-        updateTriggers: { getColor: [s.towersDown, networkDim] },
+        updateTriggers: { getColor: [s.towersDown, networkDim, calm] },
       }),
       ...(q.glowDuplicates
         ? [new PathLayer({
@@ -415,10 +458,11 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
     }
     if (q.haloNodes) {
       const p = pulse(2.4)
+      const haloData = calm ? COMMANDS : haloForZoom(Math.round(zoom * 2) / 2)
       layers.push(
         new ScatterplotLayer({
           id: 'halo',
-          data: HALO_NODES,
+          data: haloData,
           getPosition: (d: InfraNode) => d.lngLat,
           getRadius: (d: InfraNode) => NODE_META[d.type].radius * 2.2,
           radiusUnits: 'pixels',
@@ -432,7 +476,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
       )
     }
     // downed towers always keep their red warning halo
-    const downList = downedTowers(s.towersDown)
+    const downList = calm ? [] : downedTowers(s.towersDown)
     if (downList.length) {
       const p = pulse(3.2)
       layers.push(
@@ -448,30 +492,36 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         }),
       )
     }
-    layers.push(
-      new ScatterplotLayer({
-        id: 'nodes',
-        data: NETWORK_NODES,
-        pickable: true,
-        getPosition: (d: InfraNode) => d.lngLat,
-        getRadius: (d: InfraNode) => NODE_META[d.type].radius,
-        radiusUnits: 'pixels',
-        radiusMinPixels: 2,
-        getFillColor: (d: InfraNode) => nodeColor(d, !!s.towersDown[d.id], networkDim),
-        getLineColor: (d: InfraNode) => (s.towersDown[d.id] ? [254, 202, 202, 255] : [236, 254, 255, 200 * networkDim]),
-        stroked: true,
-        lineWidthMinPixels: 0.6,
-        onHover: (info) => {
-          const o = info.object as InfraNode | undefined
-          useMapUi.setState({ hover: o ? { x: info.x, y: info.y, id: o.id, kind: 'node' } : null })
-        },
-        onClick: (info) => {
-          const o = info.object as InfraNode | undefined
-          if (o) s.set({ selectedNodeId: o.id })
-        },
-        updateTriggers: { getFillColor: [s.towersDown, networkDim], getLineColor: [s.towersDown, networkDim] },
-      }),
-    )
+    TIERS.forEach((group, tier) => {
+      const alpha = tierAlpha(tier, zoom, !calm)
+      if (alpha <= 0.01 || group.length === 0) return
+      layers.push(
+        new ScatterplotLayer({
+          id: `nodes-${tier}`,
+          data: group,
+          pickable: true,
+          getPosition: (d: InfraNode) => d.lngLat,
+          getRadius: (d: InfraNode) => NODE_META[d.type].radius,
+          radiusUnits: 'pixels',
+          radiusMinPixels: 2,
+          radiusScale: 0.7 + alpha * 0.3,
+          opacity: alpha * networkDim,
+          getFillColor: (d: InfraNode) => nodeColor(d, !calm && !!s.towersDown[d.id], 1),
+          getLineColor: (d: InfraNode) => (!calm && s.towersDown[d.id] ? [254, 202, 202, 255] : [236, 254, 255, 200]),
+          stroked: true,
+          lineWidthMinPixels: 0.6,
+          onHover: (info) => {
+            const o = info.object as InfraNode | undefined
+            useMapUi.setState({ hover: o ? { x: info.x, y: info.y, id: o.id, kind: 'node' } : null })
+          },
+          onClick: (info) => {
+            const o = info.object as InfraNode | undefined
+            if (o) s.set({ selectedNodeId: o.id })
+          },
+          updateTriggers: { getFillColor: [s.towersDown, calm], getLineColor: [s.towersDown, calm] },
+        }),
+      )
+    })
     // command centres get a labelled beacon
     const commands = COMMANDS
     layers.push(
@@ -494,7 +544,11 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
   // ---------- villages
   const zoneSet = s.impact ? s.impact.villageIds : null
   const broadcast = s.broadcastAt !== null
-  if (L.villages) {
+  const villageAlpha = Math.max(
+    tierAlpha(4, zoom, !calm),
+    composer || reach || rescue || s.zone ? 1 : 0,
+  )
+  if (L.villages && !calm && villageAlpha > 0.01) {
     const key = `${zoneSet?.length ?? 0}-${broadcast}-${screen}`
     if (villageCache.key !== key) villageCache = { key, data: VILLAGES }
     const inZone = zoneSet ? new Set(zoneSet) : null
@@ -508,6 +562,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         getRadius: (d: Village) => 2.2 + Math.sqrt(d.population) / 22,
         radiusUnits: 'pixels',
         getFillColor: (d: Village): RGBA => {
+          if (calm) return [148, 163, 184, 70]
           const st = s.villageAck[d.id]
           if (broadcast && (reach || rescue || screen === 'command')) {
             if (st) return ACK_COLOR[st]
@@ -529,12 +584,13 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
         stroked: true,
         lineWidthMinPixels: 0.8,
         radiusScale: showStrong ? 1 : 0.8,
-        transitions: { getFillColor: 600 },
+        opacity: villageAlpha,
+        transitions: { getFillColor: 600, getRadius: 400 },
         onHover: (info) => {
           const o = info.object as Village | undefined
           useMapUi.setState({ hover: o ? { x: info.x, y: info.y, id: o.id, kind: 'village' } : null })
         },
-        updateTriggers: { getFillColor: [s.villageAck, key, s.zoneVillageIds], getLineColor: [s.villageAck, key] },
+        updateTriggers: { getFillColor: [s.villageAck, key, s.zoneVillageIds, calm], getLineColor: [s.villageAck, key, calm] },
       }),
     )
     if (inZone && composer) {
@@ -588,7 +644,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
   }
 
   // ---------- SOS markers + rescue units
-  if (s.sos.length && (rescue || screen === 'command' || reach)) {
+  if (s.sos.length && !calm && (rescue || screen === 'command' || reach)) {
     const p = (t * 1.1) % 1
     layers.push(
       new ScatterplotLayer({
@@ -623,7 +679,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
     )
   }
 
-  if (rescue || screen === 'command') {
+  if (!calm && (rescue || screen === 'command')) {
     const atlas = getIconAtlas()
     const patrols = PATROL_ROUTES.map((r) => {
       const f = ((t / r.period) % 1 + 1) % 1
@@ -713,6 +769,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
           getPosition: () => eye,
           getRadius: (d: { r: number }) => d.r,
           radiusScale: 0.96 + p * 0.06,
+          transitions: { getRadius: 900 },
           getFillColor: (d: { c: number[]; r: number }) => [d.c[0], d.c[1], d.c[2], d.r < 70000 ? 22 : 0],
           filled: true,
           getLineColor: (d: { c: number[] }) => [d.c[0], d.c[1], d.c[2], 190],
@@ -836,7 +893,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
   }
 
   // ---------- lightning
-  if (L.lightning && q.lightning) {
+  if (L.lightning && q.lightning && !calm) {
     const slot = Math.floor(t / 0.37)
     const phase = (t / 0.37) % 1
     if (phase < 0.35) {
@@ -870,7 +927,7 @@ export function buildLayers(s: ScenarioState, nowMs: number): Layer[] {
   }
 
   // ---------- map pulses (action feedback)
-  const live = s.pulses.filter((p) => nowMs - p.t0 < 3000)
+  const live = calm ? [] : s.pulses.filter((p) => nowMs - p.t0 < 3000)
   if (live.length) {
     const rings = live.flatMap((p) => [0, 0.33].map((off) => ({ p, f: clamp((nowMs - p.t0) / 3000 - off, 0, 1) })))
     layers.push(

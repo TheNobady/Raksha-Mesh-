@@ -19,7 +19,7 @@ The story you are telling, in one line:
 3. **Sound on.** Unmute the laptop and check the speaker icon in the top bar isn't crossed out. Audio only unlocks after you click *Initialise Command Centre*, so click it once while setting up, then press `R` to reset.
 4. **Check the network.** The basemap and terrain tiles come from the internet. On venue wifi, load the page once before you present so tiles are cached. If tiles can't load, the app falls back to its own dark map and still works — don't panic.
 5. **Check smoothness.** Press `Ctrl+Shift+P` for the presenter panel and look at the fps readout (bottom right of the Graphics row). If it sits below ~40, click **perf**. To lock it in from the start, open `http://localhost:5173/?q=perf`.
-6. **Do a dry run.** Press `B` (skip to broadcast), watch the failover, then `R` to reset. Total 30 seconds, and it warms up shaders so the real run is smooth.
+6. **Do a dry run.** Press `E` (declare the event), then `B` (skip to broadcast), watch the failover, then `R` to reset back to calm. Total 30 seconds, and it warms up shaders so the real run is smooth.
 7. Close other apps, especially anything using the GPU (video calls, another Chrome window with video).
 
 **Leave the app on the start screen** (`R` returns to it if needed, then reload if you want the boot sequence again). The first thing the judges should see is the animated logo and the boot log.
@@ -31,27 +31,46 @@ The story you are telling, in one line:
 Timings are the scenario clock at 1× speed. You control the pace — the story **pauses and waits** at
 the broadcast gate, so you can talk as long as you like before you send the alert.
 
-### 0:00 — Open cold
+### 0:00 — Open on a quiet day
 
-**Do:** Click **INITIALISE COMMAND CENTRE**.
+**Do:** Click **INITIALISE COMMAND CENTRE**. Then stop and talk.
 
-**Happens:** Boot lines finish, the map flies from all of India down to the Odisha coast, the network
-of 1,248 nodes lights up, packets start flowing along the links, and Cyclone VAYU-26 spins in the Bay
-of Bengal.
+**Happens:** Boot lines finish and the map flies from all of India down to a **standby view** of the
+Odisha coast. The full dashboard is there — but on an ordinary day: 99.2% uptime, 1,320 nodes online,
+10/10 channels ready, 879 shelters ready, **0 active alerts**, every district *Normal*, IMD reading
+"No Active System", routine chatter in the feed. The map shows the national backbone only: no storm,
+no risk tint on Odisha.
 
-**Say:** "This is a district control room during a cyclone. Every dot is a piece of real warning
-infrastructure — towers, FM stations, sirens, loudspeakers, satellite terminals, and phone-to-phone
-mesh nodes in villages."
+**Say:** "This is the system on an ordinary day. It's monitoring 1,320 nodes across the coast and
+nothing is happening — which is what a control room looks like 99% of the time."
 
-> Let the fly-in finish before you talk over it. It's five seconds and it buys attention.
+**Optional (strong):** scroll-zoom into the coast. Towers, shelters, sirens, loudspeakers and village
+mesh nodes fade in as you close in. "The detail is there when you go looking for it."
 
-### 0:05–0:35 — The situation builds itself
+> This pause is doing work. The quieter the opening, the bigger the next beat lands.
+
+### 0:20 — Declare the event
+
+**Do:** Press **`E`** (or click **DECLARE INCIDENT** in the readiness controls).
+
+**Happens:** A siren and an amber flash, "CYCLONE VAYU-26 · EVENT DETECTED". Every panel flips to its
+alert state and cascades back in — uptime and readiness become *people in danger*, *districts on
+alert*, *active alerts*; the IMD panel becomes Cyclone VAYU-26 with a landfall countdown; hazards go
+red; districts go Extreme. Odisha lights up with the full sensor network and risk tint, the camera
+closes on the coast, and the cyclone spins up in the Bay.
+
+**Say:** "IMD issues a bulletin. Watch the same dashboard turn into a crisis room."
+
+> Say nothing for two seconds while it re-assembles. Let them watch it.
+
+### 0:25–0:55 — The situation builds itself
 
 **Do:** Nothing. Just narrate while the scripted events fire.
 
-**Happens, in order:** IMD bulletin toast (0:05) → forecast cone appears (0:11) → **12 towers go red**
-near Ersama and Kujang (0:18) → flood spreads across the Mahanadi delta and a landslide blocks a ghat
-road (0:24) → **34 towers down**, the top bar switches to a tower-outage warning (0:30).
+**Happens, in order (timings are from the moment you pressed `E`):** IMD bulletin toast (+5 s) →
+forecast cone appears (+11 s) → **12 towers go red** near Ersama and Kujang (+18 s) → flood spreads
+across the Mahanadi delta and a landslide blocks a ghat road (+24 s) → **34 towers down**, the top bar
+switches to a tower-outage warning (+30 s).
 
 **Say:** "Nobody has touched anything yet. The storm is tracking, the forecast cone is published, and
 the network is already losing towers — this is exactly when a warning has to go out, and exactly when
@@ -60,9 +79,9 @@ mobile data stops being reliable."
 **Point at:** the KPI strip counting up (people in the danger zone, districts on alert, channels
 online dropping to 9/10) and the live event feed on the right.
 
-### 0:36 — The gate: it waits for you
+### 0:56 — The gate: it waits for you
 
-At 0:36 the clock **stops** and the presenter panel shows *"Awaiting official: draw zone & broadcast"*.
+36 seconds after the event was declared the clock **stops** and the presenter panel shows *"Awaiting official: draw zone & broadcast"*.
 Take as long as you want here.
 
 **Do (optional, strong):** Hover a red tower on the map — a tooltip shows its status, uptime and last
@@ -70,7 +89,7 @@ ping. Click it for a detail card.
 
 **Say:** "From here the system does nothing on its own. An official has to decide who is in danger."
 
-### 0:40 — Draw the danger zone (the one thing that's genuinely real)
+### 1:00 — Draw the danger zone (the one thing that's genuinely real)
 
 **Do:**
 1. Click **ALERT COMPOSER** in the sidebar (or the **Draw Danger Zone** button in Early Threat Controls).
@@ -213,8 +232,9 @@ we can prove who was reached and who wasn't."
 
 ## The 90-second version (if judges are rushed)
 
-1. Click **Initialise**, let the fly-in land. *(10 s)*
-2. Press **`B`** — skips straight past the setup and broadcasts with a suggested zone. *(instant)*
+1. Click **Initialise**, let the fly-in land on the standby dashboard. *(10 s)*
+2. Press **`E`** — the command centre assembles. *(3 s)*
+3. Press **`B`** — skips straight past the setup and broadcasts with a suggested zone. *(instant)*
 3. Let the **failover** play and narrate it. *(20 s)*
 4. On the keypad phone: click the green key, press **1**. *(15 s)*
 5. Sidebar → **REACH & ACK**: waves of green, three red villages. *(20 s)*
@@ -231,6 +251,8 @@ Tick these off if you have time or get asked "what else does it do?"
 - [ ] District risk table — click a row to fly there
 - [ ] Map controls: zoom, reset view, **2D/3D** (turns on 3D terrain), layer panel
 - [ ] Layer panel — toggle flood, landslide, rainfall heat, heatwave, lightning, storm surge, packets; also the **graphics level**
+- [ ] Standby readiness controls: **Run Channel Test**, **Siren Self-Test**, **Volunteer Roll-Call**, **Sync Shelter Status**, **Review Forecast** (each writes to the feed)
+- [ ] Zoom in and out on the map to show network level of detail
 - [ ] Early Threat Controls: **Trigger Sirens** (siren sound + rings rippling out across the coast), **Deploy Drones**, **Request NDRF Support**, **Activate All Channels**
 - [ ] The maximise button hides all panels for a clean full-map shot
 
@@ -265,6 +287,8 @@ surface, not part of the product. Drag it out of the way.
 
 | Key | Does |
 | --- | --- |
+| `E` | Declare the cyclone event (everything animates in) |
+| `Shift + E` | Stand down to the calm monitoring screen |
 | `Space` | Play / pause the scenario |
 | `→` | Next step |
 | `←` | Previous step (panel open) |
@@ -289,7 +313,8 @@ acknowledgement waves.
 | You drew a bad polygon | Click **Suggest from forecast**, or the bin icon, and draw again. Nothing is locked. |
 | The story got ahead of you | `Space` to pause. Presenter → **jump to step** to go back to any moment. |
 | Phones in the way | `P` to hide, or drag them. The top-bar APP/IVR/VOL icons bring them back. |
-| Total mess, judge is watching | `R`. Everything resets to the start of the story in under a second, deterministically. |
+| Total mess, judge is watching | `R`. Resets to the calm standby screen in under a second, deterministically — then press `E` to run it again. |
+| Want to show the reveal twice | `Shift+E` back to calm, then `E` again. |
 | No sound | Click anywhere first (browsers block audio until you interact), check the speaker icon in the top bar. Voice uses the browser's speech engine — if the laptop has no Odia voice it falls back to Hindi. |
 
 **The golden rule:** the scenario fills in anything you don't do. If you skip the keypad phone, the
@@ -330,4 +355,4 @@ Turf for the geometry. The India outline is our own and follows the official bou
 - **Project at 1920×1080 if you can.** The layout is built for it and adapts down to 1440×900. Below ~1600 px wide, a few side panels hide themselves.
 - **Stand to the left of the screen.** The story moves left-to-right: map → composer → channels → phones.
 - **Don't read the event feed aloud.** It's set dressing that makes the room feel alive; point at it once and move on.
-- **The three moments that win it:** the impact numbers changing as you drag a vertex, the red FAILED card fanning out into nine green channels, and the keypad phone ringing. If you only have time for three things, do those.
+- **The four moments that win it:** the standby dashboard flipping into a crisis room when you press `E`, the impact numbers changing as you drag a vertex, the red FAILED card fanning out into nine green channels, and the keypad phone ringing. If you only have time for four things, do those.

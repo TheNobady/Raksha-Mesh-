@@ -9,16 +9,34 @@ npm run dev        # http://localhost:5173
 npm run build      # production bundle in dist/
 ```
 
+## Two states: standby, then the event
+
+The app opens in **standby**: the same dashboard, on an ordinary day. Network uptime, nodes online,
+channels ready, shelters ready, volunteers on duty, **0 active alerts**, every district *Normal*, an
+IMD panel reading "No Active System", routine chatter in the feed and a daily bulletin ticker. The map
+shows the national backbone only — no storm, no risk tint over Odisha, no dense coastal network.
+
+Press **`E`** (or **Declare Incident** in the readiness controls) and it becomes a crisis room: the
+panels cascade into their alert versions, Odisha lights up with the full sensor network and district
+risk tint, the cyclone spins up in the Bay of Bengal, and the scenario clock starts. `Shift+E` stands
+back down.
+
+The map also has **level of detail**: far out you see command centres and broadcast stations; as you
+zoom into an area its towers, shelters, sirens, loudspeakers and village mesh nodes fade in. During an
+incident everything arrives about a zoom level earlier.
+
 ## Demo controls
 
 | Key | Action |
 | --- | --- |
+| `E` | **Declare the cyclone event** — everything animates in and the story starts |
+| `Shift + E` | Stand down to the calm monitoring screen |
 | `Ctrl + Shift + P` or `` ` `` | Toggle the hidden **presenter panel** |
 | `Space` | Play / pause the scenario |
 | `→` | Next step (at the broadcast gate this auto-broadcasts with the suggested zone) |
 | `←` | Previous step (while the presenter panel is open) |
 | `B` | Skip straight to broadcast |
-| `R` | Reset everything |
+| `R` | Reset everything (returns to calm) |
 | `P` | Show / hide the three phones |
 
 The presenter panel also has **Jump to step** (a deterministic replay), speed (0.5× / 1× / 2×), mute, and an
@@ -28,8 +46,8 @@ Keypad phone: hover the phone, then use the keyboard. `Enter` answers, `1` / `2`
 
 ## Story beats
 
-1. Click **Initialise Command Centre**. This unlocks audio, then the map flies from India to the Odisha coast.
-2. The cyclone intensifies, the forecast cone appears, coastal towers fail, and the flood extent grows.
+1. Click **Initialise Command Centre**. This unlocks audio, then the map flies from India down to a calm monitoring view of the Odisha coast.
+2. Press **`E`**. The incident is declared: the dashboard switches to its alert state, Odisha's network and risk tint light up, and the camera closes on the coast. The cyclone then intensifies, the forecast cone appears, coastal towers fail, and the flood extent grows.
 3. **Alert Composer:** draw a polygon, or use *Suggest from forecast*. Drag vertices and watch the real turf.js impact update. Pick severity, audience, language and voice, then *Send for approval*, then press and hold **BROADCAST**.
 4. **Routing & Channels:** Mobile Data fails, intelligent failover kicks in, and green routes light up every other channel. The mesh relay reaches a cut-off village.
 5. The phones react: a smartphone emergency takeover, a keypad IVR call (press `1`), and a volunteer task.

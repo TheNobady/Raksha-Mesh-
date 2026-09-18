@@ -18,6 +18,16 @@ export function usePresenterKeys() {
         return
       }
       if (!s.started || e.ctrlKey || e.metaKey || e.altKey) return
+      // E declares the incident (Shift+E stands back down) — the demo's main gesture
+      if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault()
+        if (e.shiftKey) s.standDown()
+        else s.triggerEvent()
+        return
+      }
+      if (e.key === 'r' || e.key === 'R') return resetAll()
+      // while calm only the keys that themselves declare the incident do anything
+      if (s.phase === 'calm' && !/^(b|B|ArrowRight)$/.test(e.key)) return
       // keypad phone captures digits while hovered/focused
       if ((window as unknown as { __keypadActive?: boolean }).__keypadActive && /^[0-9*#]$|^Enter$|^Backspace$/.test(e.key)) return
       if (e.key === ' ') {
@@ -27,8 +37,6 @@ export function usePresenterKeys() {
         next()
       } else if (e.key === 'ArrowLeft' && s.presenterOpen) {
         prev()
-      } else if (e.key === 'r' || e.key === 'R') {
-        resetAll()
       } else if (e.key === 'p' || e.key === 'P') {
         s.setPhonesVisible(!s.phonesVisible)
       } else if (e.key === 'b' || e.key === 'B') {

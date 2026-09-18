@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertOctagon, AlertTriangle, CheckCircle2, ChevronsLeft, ChevronsRight, Info, ScrollText } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { springSoft } from '../../lib/motion'
 import { useStore, type FeedEvent } from '../../store/scenarioStore'
 import { LiveTag } from '../ui/LiveTag'
 
@@ -87,11 +88,10 @@ export function EventFeed() {
             return (
               <motion.div
                 key={e.id}
-                layout="position"
-                initial={{ opacity: 0, x: 24, backgroundColor: 'rgba(34,211,238,0.22)' }}
+                initial={{ opacity: 0, x: 20, backgroundColor: 'rgba(34,211,238,0.22)' }}
                 animate={{ opacity: 1, x: 0, backgroundColor: e.sev === 'crit' ? 'rgba(239,68,68,0.07)' : 'rgba(0,0,0,0)' }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35, backgroundColor: { duration: 1.4 } }}
+                exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                transition={{ ...springSoft, backgroundColor: { duration: 1.4 } }}
                 className={`mb-1 flex gap-2 rounded-md px-2 py-1.5 ${e.sev === 'crit' ? 'border-l-2 border-red-500/70' : 'border-l-2 border-transparent'}`}
               >
                 <Icon size={13} className={`mt-0.5 shrink-0 ${s.c}`} />

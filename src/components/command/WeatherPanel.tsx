@@ -1,4 +1,4 @@
-import { CloudRain, Gauge, Navigation, Tornado, Waves, Wind } from 'lucide-react'
+import { CloudRain, CloudSun, Gauge, Navigation, Thermometer, Tornado, Waves, Wind } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import { CYCLONE } from '../../data/hazards'
 import { landfallSeconds } from '../../lib/cyclone'
@@ -8,6 +8,8 @@ import { GlassPanel } from '../ui/GlassPanel'
 
 const WIND = [92, 104, 118, 131, 142, 150, 158, 166, 171, 176, 181, 185].map((v, i) => ({ i, v }))
 const PRESSURE = [992, 988, 983, 977, 972, 968, 964, 961, 958, 956, 954, 952].map((v, i) => ({ i, v }))
+const CALM_WIND = [14, 16, 15, 18, 17, 19, 18, 16, 17, 18, 19, 18].map((v, i) => ({ i, v }))
+const CALM_PRESSURE = [1007, 1006, 1007, 1006, 1006, 1005, 1006, 1007, 1006, 1006, 1007, 1006].map((v, i) => ({ i, v }))
 
 function Spark({ data, color, id }: { data: { i: number; v: number }[]; color: string; id: string }) {
   return (
@@ -27,7 +29,11 @@ function Spark({ data, color, id }: { data: { i: number; v: number }[]; color: s
 }
 
 export function WeatherPanel() {
+  const calm = useStore((s) => s.phase === 'calm')
   const elapsed = useStore((s) => Math.floor(s.elapsed))
+
+  if (calm) return <CalmWeather />
+
   const stats = [
     { icon: Wind, label: 'Max wind', value: `${CYCLONE.maxWindKmh} km/h`, sub: `gust ${CYCLONE.gustKmh}` },
     { icon: Gauge, label: 'Pressure', value: `${CYCLONE.pressureHpa} hPa`, sub: '▼ 4 hPa/3h' },
@@ -77,6 +83,64 @@ export function WeatherPanel() {
               <span className="text-rose-300">▼ 40</span>
             </div>
             <Spark data={PRESSURE} color="#F43F5E" id="spark-pressure" />
+          </div>
+        </div>
+      </div>
+    </GlassPanel>
+  )
+}
+
+/** Standby: current conditions, no active system. */
+function CalmWeather() {
+  const stats = [
+    { icon: Wind, label: 'Wind', value: '18 km/h', sub: 'SW · steady' },
+    { icon: Gauge, label: 'Pressure', value: '1006 hPa', sub: 'steady' },
+    { icon: Thermometer, label: 'Temp', value: '29 °C', sub: 'feels 33 °C' },
+    { icon: CloudRain, label: 'Rainfall', value: '4 mm', sub: 'last 24h' },
+    { icon: Waves, label: 'Sea state', value: 'Moderate', sub: '1.2 m swell' },
+    { icon: Navigation, label: 'Visibility', value: '8 km', sub: 'haze' },
+  ]
+  return (
+    <GlassPanel title="Weather Report · IMD" icon={CloudSun} live>
+      <div className="px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="font-display text-[15px] font-bold tracking-wider text-white whitespace-nowrap">No Active System</div>
+            <div className="mt-0.5 inline-flex rounded border border-green-400/50 bg-green-500/15 px-1.5 py-0.5 font-hud text-[10px] font-bold uppercase tracking-wider text-green-200">
+              Bay of Bengal · all clear
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-hud text-[10px] uppercase tracking-widest text-slate-400">Next bulletin</div>
+            <div className="num text-lg text-cyan-200">17:30</div>
+          </div>
+        </div>
+        <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-md border border-sky-400/10 bg-slate-950/40 px-2 py-1.5">
+              <div className="flex items-center gap-1 text-slate-400">
+                <s.icon size={11} className="text-cyan-400" />
+                <span className="font-hud text-[9.5px] uppercase tracking-wider truncate">{s.label}</span>
+              </div>
+              <div className="font-mono text-[12.5px] font-bold text-slate-100 truncate">{s.value}</div>
+              <div className="font-mono text-[9.5px] text-slate-500">{s.sub}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div>
+            <div className="flex justify-between font-hud text-[10px] uppercase tracking-wider text-slate-400">
+              <span>Wind trend</span>
+              <span className="text-green-300">■ steady</span>
+            </div>
+            <Spark data={CALM_WIND} color="#38BDF8" id="spark-calm-wind" />
+          </div>
+          <div>
+            <div className="flex justify-between font-hud text-[10px] uppercase tracking-wider text-slate-400">
+              <span>Pressure trend</span>
+              <span className="text-green-300">■ steady</span>
+            </div>
+            <Spark data={CALM_PRESSURE} color="#4ADE80" id="spark-calm-pressure" />
           </div>
         </div>
       </div>

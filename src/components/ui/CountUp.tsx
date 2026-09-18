@@ -15,8 +15,11 @@ export function CountUp({ value, format = 'in', duration = 1.2, className = '' }
   fmt.current = format
 
   useEffect(() => {
+    // bigger jumps deserve a little more time; tiny ticks should feel instant
+    const delta = Math.abs(value - current.current)
+    const scale = delta === 0 ? 0 : Math.min(1.6, Math.max(0.45, Math.log10(delta + 1) / 3))
     const controls = animate(current.current, value, {
-      duration,
+      duration: duration * scale,
       ease: [0.16, 1, 0.3, 1],
       onUpdate: (v) => {
         current.current = v

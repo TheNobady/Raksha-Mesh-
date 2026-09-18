@@ -148,6 +148,33 @@ export const TICKER_ITEMS = [
   'Mahanadi at Naraj: water level 25.8 m, rising · Hirakud releasing 3.1 lakh cusecs',
 ]
 
+/** Routine chatter for the standby screen — a control room on an ordinary day. */
+export const CALM_AMBIENT: { sev: 'info' | 'ok' | 'warn'; text: string }[] = [
+  { sev: 'ok', text: 'Heartbeat OK · 1,320 nodes responding · mesh healthy' },
+  { sev: 'info', text: 'IMD 06:00 bulletin: no cyclonic systems over the Bay of Bengal' },
+  { sev: 'ok', text: 'Weekly siren self-test passed · 48/48 coastal sirens' },
+  { sev: 'info', text: 'Shelter audit: 879 shelters verified · 1,04,500 capacity' },
+  { sev: 'ok', text: 'Cell broadcast gateway handshake OK · operator link nominal' },
+  { sev: 'info', text: 'Aapda Mitra roll-call: 1,142 volunteers marked available' },
+  { sev: 'ok', text: 'VSAT link Khordha ↔ NEOC · latency 604 ms · stable' },
+  { sev: 'info', text: 'Tide gauge Dhamra: normal range · sea state moderate' },
+  { sev: 'ok', text: 'Quarterly IVR drill completed · 96% pickup in sample' },
+  { sev: 'info', text: 'AWS Paradip: wind 18 km/h · 1006 hPa · 29°C' },
+  { sev: 'warn', text: 'Tower KND-114 scheduled maintenance window 02:00–04:00' },
+  { sev: 'ok', text: 'Mesh routing table recomputed · all villages reachable' },
+]
+
+export const CALM_TICKER = [
+  'IMD: No cyclonic circulation over the Bay of Bengal · next bulletin 17:30 IST',
+  'Sea state moderate along the Odisha coast · fishermen advisory: normal operations',
+  'Raksha Mesh: all 10 alert channels armed and tested · last drill passed',
+  '879 cyclone shelters verified this quarter · capacity 1,04,500',
+  'Pre-monsoon readiness review scheduled with district collectors on Friday',
+  'Aapda Mitra training batch 14 completed · 220 new volunteers certified',
+  'Mahanadi at Naraj: 21.4 m · well below danger mark',
+  'Network uptime 99.2% over 30 days · 1,320 nodes connected',
+]
+
 export const AMBIENT_EVENTS: { sev: 'info' | 'ok' | 'warn'; text: string }[] = [
   { sev: 'info', text: 'AWS Paradip: wind 96 km/h gusting 118 · pressure 981 hPa' },
   { sev: 'ok', text: 'Heartbeat OK · 312 LoRa mesh nodes responding' },

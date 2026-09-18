@@ -13,8 +13,8 @@ export interface QualityFlags {
   haloNodes: boolean
   glowDuplicates: boolean
   packets: boolean
-  /** minimum ms between deck layer rebuilds */
-  frameInterval: number
+  /** render every (frameSkip + 1)th frame — even skipping avoids judder */
+  frameSkip: number
   lightning: boolean
 }
 
@@ -28,7 +28,7 @@ export const QUALITY: Record<QualityLevel, QualityFlags> = {
     haloNodes: true,
     glowDuplicates: true,
     packets: true,
-    frameInterval: 0,
+    frameSkip: 0,
     lightning: true,
   },
   balanced: {
@@ -40,7 +40,7 @@ export const QUALITY: Record<QualityLevel, QualityFlags> = {
     haloNodes: true,
     glowDuplicates: false,
     packets: true,
-    frameInterval: 22,
+    frameSkip: 0,
     lightning: true,
   },
   performance: {
@@ -52,7 +52,7 @@ export const QUALITY: Record<QualityLevel, QualityFlags> = {
     haloNodes: false,
     glowDuplicates: false,
     packets: true,
-    frameInterval: 33,
+    frameSkip: 1,
     lightning: false,
   },
 }

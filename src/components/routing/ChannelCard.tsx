@@ -3,6 +3,7 @@ import { AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { forwardRef, useEffect, useState } from 'react'
 import type { ChannelDef } from '../../data/content'
 import { fmtCompact, fmtIN } from '../../lib/format'
+import { easeOutExpo } from '../../lib/motion'
 import { useStore, type ChannelState } from '../../store/scenarioStore'
 import { CountUp } from '../ui/CountUp'
 import { CHANNEL_ICON } from './channelIcons'
@@ -56,12 +57,12 @@ export const ChannelCard = forwardRef<HTMLDivElement, { def: ChannelDef; big?: b
       ref={ref}
       layout
       animate={{
-        scale: failed ? [1, 1.08, 1.03] : state === 'attempting' ? [1, 1.02, 1] : 1,
+        scale: failed ? [1, 1.08, 1.03] : 1,
         rotateY: failed ? [0, 90, 0] : 0,
       }}
-      transition={{ duration: failed ? 0.7 : 0.6, repeat: state === 'attempting' ? Infinity : 0 }}
+      transition={{ duration: failed ? 0.7 : 0.4, ease: easeOutExpo }}
       style={{ transformPerspective: 800 }}
-      className={`relative flex h-full flex-col overflow-hidden rounded-xl border bg-gradient-to-b p-3 ${st.border} ${st.bg} ${failed ? 'glow-red z-10' : ok ? 'glow-green' : state === 'attempting' ? 'glow-amber' : ''}`}
+      className={`relative flex h-full flex-col overflow-hidden rounded-xl border bg-gradient-to-b p-3 ${st.border} ${st.bg} ${failed ? 'glow-red z-10' : ok ? 'glow-green' : state === 'attempting' ? 'glow-amber attempting-pulse' : ''}`}
     >
       {ok && <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-green-400 to-transparent" />}
       {failed && <div className="absolute inset-0 bg-[repeating-linear-gradient(-45deg,rgba(239,68,68,0.06)_0_8px,transparent_8px_16px)]" />}

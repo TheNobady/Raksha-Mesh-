@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Maximize2, Minimize2 } from 'lucide-react'
+import { riseIn, slideIn, stagger } from '../../lib/motion'
 import { useStore } from '../../store/scenarioStore'
 import { MapControls } from '../map/MapControls'
 import { MapSlot } from '../map/MapSlot'
@@ -11,6 +12,7 @@ import { NetworkHealth } from './NetworkHealth'
 import { WeatherPanel } from './WeatherPanel'
 
 export function CommandCentre() {
+  const phase = useStore((s) => s.phase)
   const hidden = useStore((s) => s.panelsHidden)
   const set = useStore((s) => s.set)
   const col = 'w-[260px] min-[1600px]:w-[300px]'
@@ -20,24 +22,31 @@ export function CommandCentre() {
       <MapSlot className="absolute inset-0" />
       <AnimatePresence>
         {!hidden && (
-          <motion.div key="panels" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none">
-            <div className="absolute left-3 right-3 top-3">
+          <motion.div
+            key={`panels-${phase}`}
+            variants={stagger(0.07)}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="absolute inset-0 pointer-events-none"
+          >
+            <motion.div variants={slideIn('top', 22)} className="absolute left-3 right-3 top-3">
               <KpiStrip />
-            </div>
-            <motion.div initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.15 }} className={`thin-scroll pointer-events-auto absolute bottom-3 left-3 top-[108px] min-[1500px]:top-[92px] flex flex-col gap-2 overflow-y-auto ${col}`}>
+            </motion.div>
+            <motion.div variants={slideIn('left', 34)} className={`thin-scroll pointer-events-auto absolute bottom-3 left-3 top-[108px] min-[1500px]:top-[92px] flex flex-col gap-2 overflow-y-auto ${col}`}>
               <WeatherPanel />
               <HazardSummary />
             </motion.div>
-            <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }} className={`thin-scroll pointer-events-auto absolute bottom-3 right-3 top-[108px] min-[1500px]:top-[92px] flex flex-col gap-2 overflow-y-auto ${col}`}>
+            <motion.div variants={slideIn('right', 34)} className={`thin-scroll pointer-events-auto absolute bottom-3 right-3 top-[108px] min-[1500px]:top-[92px] flex flex-col gap-2 overflow-y-auto ${col}`}>
               <DistrictTable />
               <NetworkHealth />
             </motion.div>
-            <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.25 }} className="absolute bottom-3 left-[272px] right-[272px] min-[1600px]:left-[312px] min-[1600px]:right-[312px]">
+            <motion.div variants={slideIn('bottom', 30)} className="absolute bottom-3 left-[272px] right-[272px] min-[1600px]:left-[312px] min-[1600px]:right-[312px]">
               <ActionPanel />
             </motion.div>
-            <div className="absolute right-[272px] top-[108px] min-[1500px]:top-[92px] min-[1600px]:right-[312px]">
+            <motion.div variants={riseIn} className="absolute right-[272px] top-[108px] min-[1500px]:top-[92px] min-[1600px]:right-[312px]">
               <MapControls />
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

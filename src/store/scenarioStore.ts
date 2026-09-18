@@ -23,6 +23,7 @@ export type Screen =
   | 'reports'
   | 'settings'
 
+export type Phase = 'calm' | 'active'
 export type AckState = 'pending' | 'ack' | 'partial' | 'unreached'
 export type Sev = 'info' | 'ok' | 'warn' | 'crit'
 export type FeedCat = 'system' | 'channel' | 'rescue' | 'alert'
@@ -106,6 +107,9 @@ const channelInit = () =>
 
 export interface ScenarioData {
   started: boolean
+  /** calm = quiet monitoring screen; active = the cyclone event is running */
+  phase: Phase
+  eventNonce: number
   screen: Screen
   // engine
   elapsed: number
@@ -176,6 +180,8 @@ export interface ScenarioData {
 
 const initialData = (): ScenarioData => ({
   started: false,
+  phase: 'calm',
+  eventNonce: 0,
   screen: 'command',
   elapsed: 0,
   isPlaying: false,
@@ -236,6 +242,8 @@ export interface ScenarioActions {
   set: (patch: Partial<ScenarioData>) => void
   reset: () => void
   setScreen: (s: Screen) => void
+  triggerEvent: () => void
+  standDown: () => void
   pushFeed: (sev: Sev, cat: FeedCat, text: string) => void
   toast: (sev: Sev, title: string, body?: string) => void
   dismissToast: (id: number) => void
@@ -296,6 +304,26 @@ export const useStore = create<ScenarioState>()((set, get) => ({
     if (get().screen === screen) return
     sfx('click')
     set({ screen })
+  },
+
+  /** The demo's big moment: a quiet monitoring screen becomes a command centre. */
+  triggerEvent: () => {
+    if (get().phase === 'active') return
+    set((s) => ({
+      phase: 'active',
+      isPlaying: true,
+      screen: 'command',
+      eventNonce: s.eventNonce + 1,
+    }))
+    sfx('siren')
+    get().pushFeed('crit', 'alert', 'INCIDENT DECLARED · Severe cyclone VAYU-26 tracking toward the Odisha coast')
+  },
+
+  standDown: () => {
+    if (get().phase === 'calm') return
+    sound.stopAll()
+    const keep = { muted: get().muted, presenterOpen: get().presenterOpen, started: get().started, feedOpen: get().feedOpen }
+    set({ ...initialData(), ...keep, introNonce: get().introNonce })
   },
 
   pushFeed: (sev, cat, text) =>

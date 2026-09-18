@@ -4,15 +4,25 @@ import { GlassPanel } from '../ui/GlassPanel'
 import { StatusDot } from '../ui/StatusDot'
 
 export function HazardSummary() {
+  const calm = useStore((s) => s.phase === 'calm')
   const flood = useStore((s) => s.floodStage)
   const slide = useStore((s) => s.landslideActive)
-  const items: { name: string; icon: LucideIcon; status: string; level: 'red' | 'amber' | 'green' | 'cyan'; trend: '▲' | '▼' | '■'; detail: string }[] = [
+  const calmItems: { name: string; icon: LucideIcon; status: string; level: 'red' | 'amber' | 'green' | 'cyan'; trend: '▲' | '▼' | '■'; detail: string }[] = [
+    { name: 'Cyclone', icon: Tornado, status: 'NONE', level: 'green', trend: '■', detail: 'No system over the Bay' },
+    { name: 'Flood', icon: Waves, status: 'NORMAL', level: 'green', trend: '■', detail: 'All rivers below danger mark' },
+    { name: 'Landslide', icon: Mountain, status: 'LOW', level: 'green', trend: '■', detail: 'Ghat roads open' },
+    { name: 'Heatwave', icon: Sun, status: 'LOW', level: 'green', trend: '▼', detail: 'Western Odisha · 29°C' },
+    { name: 'Lightning', icon: CloudLightning, status: 'LOW', level: 'cyan', trend: '■', detail: '12 strikes / hr' },
+  ]
+
+  const alertItems: { name: string; icon: LucideIcon; status: string; level: 'red' | 'amber' | 'green' | 'cyan'; trend: '▲' | '▼' | '■'; detail: string }[] = [
     { name: 'Cyclone', icon: Tornado, status: 'EXTREME', level: 'red', trend: '▲', detail: 'ESCS · 185 km/h' },
     { name: 'Flood', icon: Waves, status: flood >= 3 ? 'SEVERE' : flood > 0 ? 'RISING' : 'WATCH', level: flood >= 2 ? 'red' : 'amber', trend: flood > 0 ? '▲' : '■', detail: `Mahanadi delta · stage ${flood}` },
     { name: 'Landslide', icon: Mountain, status: slide ? 'HIGH' : 'MODERATE', level: slide ? 'amber' : 'cyan', trend: slide ? '▲' : '■', detail: 'Gajapati · Kandhamal ghats' },
     { name: 'Heatwave', icon: Sun, status: 'LOW', level: 'green', trend: '▼', detail: 'Western Odisha · 36°C' },
     { name: 'Lightning', icon: CloudLightning, status: 'ACTIVE', level: 'amber', trend: '▲', detail: '1,284 strikes / hr' },
   ]
+  const items = calm ? calmItems : alertItems
   const color = { red: 'text-red-300', amber: 'text-amber-300', green: 'text-green-300', cyan: 'text-cyan-300' }
   return (
     <GlassPanel title="Multi-Hazard Summary" icon={CloudLightning}>

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
-import { Building2, HeartPulse, Landmark, RadioTower, Siren, Truck, Users, UsersRound, type LucideIcon } from 'lucide-react'
+import { Activity, Building2, CalendarCheck, HeartPulse, Landmark, RadioTower, ShieldCheck, Siren, Truck, Users, UsersRound, type LucideIcon } from 'lucide-react'
 import { fmtCompact } from '../../lib/format'
+import { riseIn, stagger } from '../../lib/motion'
 import { useStore } from '../../store/scenarioStore'
 import { CountUp } from '../ui/CountUp'
 
@@ -22,11 +23,23 @@ const TONE = {
 }
 
 export function KpiStrip() {
+  const calm = useStore((s) => s.phase === 'calm')
   const kpi = useStore((s) => s.kpi)
   const channelsFailed = useStore((s) => (s.channels.data.state === 'failed' || Object.keys(s.towersDown).length > 20 ? 1 : 0))
   const sosOpen = useStore((s) => s.sos.filter((x) => x.status !== 'rescued').length)
 
-  const items: Kpi[] = [
+  const calmItems: Kpi[] = [
+    { label: 'Network Uptime', value: 99.2, icon: Activity, tone: 'green', format: (n) => `${n.toFixed(1)}%`, sub: 'Rolling 30 days' },
+    { label: 'Nodes Online', value: 1320, icon: RadioTower, tone: 'cyan', format: 'in', sub: 'Towers · mesh · sirens' },
+    { label: 'Channels Ready', value: 10, icon: Siren, tone: 'green', format: (n) => `${Math.round(n)}/10`, sub: 'All paths tested' },
+    { label: 'Shelters Ready', value: 879, icon: Building2, tone: 'cyan', format: 'in', sub: 'Capacity 1,04,500' },
+    { label: 'Volunteers On Duty', value: 1142, icon: UsersRound, tone: 'cyan', format: 'in', sub: 'Aapda Mitra available' },
+    { label: 'Active Alerts', value: 0, icon: Landmark, tone: 'green', format: 'in', sub: 'No live warnings' },
+    { label: 'Districts Monitored', value: 30, icon: ShieldCheck, tone: 'cyan', format: 'in', sub: 'Odisha · all districts' },
+    { label: 'Days Since Incident', value: 12, icon: CalendarCheck, tone: 'green', format: 'in', sub: 'Last: sq. depression' },
+  ]
+
+  const alertItems: Kpi[] = [
     { label: 'People in Danger Zone', value: kpi.peopleInDanger, icon: Users, tone: 'red', format: (n) => fmtCompact(n), sub: 'Live polygon estimate' },
     { label: 'Districts on Alert', value: kpi.districts, icon: Landmark, tone: 'amber', format: 'in', sub: 'of 30 · coastal belt' },
     { label: 'Active Alerts', value: kpi.activeAlerts, icon: Siren, tone: 'rose', format: 'in', sub: 'Watch · Warning · Evac' },
@@ -37,19 +50,15 @@ export function KpiStrip() {
     { label: 'Rescued', value: kpi.rescued, icon: HeartPulse, tone: 'green', format: 'in', sub: sosOpen ? `${sosOpen} SOS open` : 'No open SOS' },
   ]
 
+  const items = calm ? calmItems : alertItems
+
   return (
-    <div className="grid grid-cols-4 min-[1500px]:grid-cols-8 gap-2">
-      {items.map((k, i) => {
+    <motion.div key={calm ? 'calm' : 'alert'} variants={stagger(0.04)} initial="hidden" animate="show" className="grid grid-cols-4 min-[1500px]:grid-cols-8 gap-2">
+      {items.map((k) => {
         const t = TONE[k.tone]
         const Icon = k.icon
         return (
-          <motion.div
-            key={k.label}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * i }}
-            className="glass pointer-events-auto relative overflow-hidden rounded-xl px-3 py-2"
-          >
+          <motion.div key={k.label} variants={riseIn} className="glass pointer-events-auto relative overflow-hidden rounded-xl px-3 py-2">
             <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${t.bar} to-transparent opacity-80`} />
             <div className="flex items-center gap-1.5">
               <Icon size={13} className={t.icon} />
@@ -60,6 +69,6 @@ export function KpiStrip() {
           </motion.div>
         )
       })}
-    </div>
+    </motion.div>
   )
 }

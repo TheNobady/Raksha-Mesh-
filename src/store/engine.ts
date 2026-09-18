@@ -1,5 +1,5 @@
 import { sound } from '../audio/soundManager'
-import { AMBIENT_EVENTS } from '../data/content'
+import { AMBIENT_EVENTS, CALM_AMBIENT } from '../data/content'
 import { getState, setSilent, useStore, type Screen } from './scenarioStore'
 import { absoluteAt, ORDERED_STEPS, type Step } from './timeline'
 
@@ -32,16 +32,18 @@ function tick(now: number) {
   const s = getState()
 
   if (s.started) {
-    // ambient events keep the dashboard alive even when paused at the gate
+    // the feed never goes dead: routine chatter while calm, sensor traffic during the event
+    const live = s.phase === 'active'
     ambientAcc += dt
-    if (ambientAcc > 3.4) {
+    if (ambientAcc > (live ? 3.4 : 6.5)) {
       ambientAcc = 0
-      const e = AMBIENT_EVENTS[ambientIdx++ % AMBIENT_EVENTS.length]
+      const pool = live ? AMBIENT_EVENTS : CALM_AMBIENT
+      const e = pool[ambientIdx++ % pool.length]
       s.pushFeed(e.sev, 'system', e.text)
     }
   }
 
-  if (s.started && s.isPlaying) {
+  if (s.started && s.isPlaying && s.phase === 'active') {
     let elapsed = clock.t + dt * s.speed
     const gate = ORDERED_STEPS.find((x) => x.gate)!
     if (s.broadcastAt === null && elapsed >= gate.at) {
@@ -114,6 +116,7 @@ export function setSpeed(speed: number) {
 
 export function next() {
   const s = getState()
+  if (s.phase === 'calm') return s.triggerEvent()
   const step = ORDERED_STEPS.find((x) => !s.fired[x.id])
   if (!step) return
   if (step.gate) return skipToBroadcast()
@@ -135,6 +138,7 @@ export function prev() {
 
 export function skipToBroadcast() {
   const s = getState()
+  if (s.phase === 'calm') s.triggerEvent()
   if (s.broadcastAt !== null) return
   const gate = ORDERED_STEPS.find((x) => x.gate)!
   setSilent(true)
@@ -151,13 +155,15 @@ export function skipToBroadcast() {
 
 /** Deterministic replay: reset, then silently apply every step up to `index`. */
 export function jumpTo(index: number) {
+  if (getState().phase === 'calm') getState().triggerEvent()
   const playing = getState().isPlaying
   const speed = getState().speed
   sound.stopAll()
   const intro = getState().introNonce
   getState().reset()
   setClock(0)
-  useStore.setState({ introNonce: intro, isPlaying: playing, speed })
+  // a jump always lands inside the running event, never back in calm
+  useStore.setState({ introNonce: intro, isPlaying: playing, speed, phase: 'active' })
   setSilent(true)
   let screen: Screen = 'command'
   for (let i = 0; i <= index && i < ORDERED_STEPS.length; i++) {
@@ -176,9 +182,10 @@ export function jumpTo(index: number) {
   useStore.setState({ screen })
 }
 
+/** R always lands back on the calm monitoring screen. */
 export function resetAll() {
   sound.stopAll()
   getState().reset()
   setClock(0)
-  useStore.setState({ isPlaying: true })
+  useStore.setState({ isPlaying: true, phase: 'calm' })
 }

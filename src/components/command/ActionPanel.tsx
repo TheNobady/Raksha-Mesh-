@@ -1,4 +1,4 @@
-import { BellRing, Drone, Megaphone, PenTool, RadioTower, ShieldAlert, Siren } from 'lucide-react'
+import { BellRing, ClipboardCheck, Drone, Megaphone, PenTool, RadioTower, ShieldAlert, Siren, UsersRound, Waves, Zap } from 'lucide-react'
 import { sound } from '../../audio/soundManager'
 import { SIRENS } from '../../data/infrastructure'
 import { RESCUE_BASE } from '../../data/rescue'
@@ -8,8 +8,53 @@ import { GlowButton } from '../ui/GlowButton'
 export function ActionPanel() {
   const s = useStore.getState
   const broadcast = useStore((st) => st.broadcastAt !== null)
+  const calm = useStore((st) => st.phase === 'calm')
 
-  const actions = [
+  // Standby: readiness drills, plus the one button that starts the scenario.
+  const calmActions = [
+    {
+      label: 'Run Channel Test', icon: RadioTower, tone: 'cyan' as const,
+      run: () => {
+        sound.play('confirm')
+        s().pushFeed('ok', 'channel', 'Channel test complete · CB, SMS, IVR, FM, TV, sirens, PA, satellite, mesh all responded')
+        s().toast('ok', 'Channel test passed', 'All 10 paths acknowledged within SLA')
+      },
+    },
+    {
+      label: 'Siren Self-Test', icon: Siren, tone: 'amber' as const,
+      run: () => {
+        sound.play('confirm')
+        s().pushFeed('ok', 'system', `Siren self-test · ${SIRENS.length}/${SIRENS.length} coastal sirens reported healthy`)
+        s().toast('ok', 'Sirens healthy', `${SIRENS.length} sirens · voice playback verified`)
+      },
+    },
+    {
+      label: 'Volunteer Roll-Call', icon: UsersRound, tone: 'cyan' as const,
+      run: () => {
+        sound.play('click')
+        s().pushFeed('info', 'system', 'Roll-call sent to 1,412 Aapda Mitra volunteers · 1,142 available')
+        s().toast('info', 'Roll-call sent', '1,142 volunteers available')
+      },
+    },
+    {
+      label: 'Sync Shelter Status', icon: ClipboardCheck, tone: 'cyan' as const,
+      run: () => {
+        sound.play('click')
+        s().pushFeed('ok', 'system', 'Shelter sync · 879 shelters reporting · capacity 1,04,500')
+        s().toast('ok', 'Shelters synced', '879 shelters verified')
+      },
+    },
+    {
+      label: 'Review Forecast', icon: Waves, tone: 'green' as const,
+      run: () => {
+        sound.play('click')
+        s().pushFeed('info', 'alert', 'IMD outlook reviewed · no cyclogenesis expected in next 72h')
+        s().toast('info', 'Forecast reviewed', 'No systems over the Bay of Bengal')
+      },
+    },
+  ]
+
+  const alertActions = [
     {
       label: 'Draw Danger Zone', icon: PenTool, tone: 'cyan' as const,
       run: () => {
@@ -64,6 +109,8 @@ export function ActionPanel() {
     },
   ]
 
+  const actions = calm ? calmActions : alertActions
+
   return (
     <div className="glass brackets pointer-events-auto rounded-xl p-2">
       <span className="bk tl" />
@@ -71,10 +118,19 @@ export function ActionPanel() {
       <span className="bk bl" />
       <span className="bk br" />
       <div className="mb-1.5 flex items-center gap-2 px-1">
-        <ShieldAlert size={13} className="text-rose-300" />
-        <span className="label text-rose-200">Early Threat Controls</span>
-        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-rose-400 blink" />
+        <ShieldAlert size={13} className={calm ? 'text-cyan-300' : 'text-rose-300'} />
+        <span className={`label ${calm ? 'text-cyan-200' : 'text-rose-200'}`}>{calm ? 'Readiness Controls' : 'Early Threat Controls'}</span>
+        <span className={`ml-auto h-1.5 w-1.5 rounded-full ${calm ? 'bg-green-400 pulse-dot' : 'bg-rose-400 blink'}`} />
       </div>
+      {calm && (
+        <button
+          onClick={() => s().triggerEvent()}
+          className="mb-1.5 flex w-full items-center justify-center gap-3 rounded-lg border border-amber-400/50 bg-amber-500/15 py-2.5 font-hud text-[13px] font-bold uppercase tracking-[0.2em] text-amber-100 shadow-[0_0_22px_rgba(245,158,11,0.2)] transition-colors hover:bg-amber-500/25 cursor-pointer"
+        >
+          <Zap size={16} /> Declare Incident
+          <kbd className="rounded border border-amber-300/60 bg-amber-400/20 px-1.5 py-[1px] font-mono text-[11px]">E</kbd>
+        </button>
+      )}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-1.5">
         {actions.map((a) => (
           <GlowButton key={a.label} icon={a.icon} tone={a.tone} size="sm" onClick={a.run} className="min-h-[34px] leading-tight text-center">

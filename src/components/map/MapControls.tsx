@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { mapRefs } from '../../lib/mapInstance'
 import { useStore } from '../../store/scenarioStore'
 import { LayerPanel } from './LayerPanel'
-import { resetView } from './MapView'
+import { resetView } from './camera'
 
 export function MapControls({ className = '' }: { className?: string }) {
   const terrain = useStore((s) => s.layers.terrain)
